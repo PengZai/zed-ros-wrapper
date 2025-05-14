@@ -6,9 +6,14 @@ project(zed_nodelets)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # if CMAKE_BUILD_TYPE is not specified, take 'Release' as default
+set(CMAKE_BUILD_TYPE Release)
 IF(NOT CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE Release)
 ENDIF(NOT CMAKE_BUILD_TYPE)
+
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_DEBUG "-g3")
+
 
 function(checkPackage package customMessage)
     set(varName "${package}_FOUND")
@@ -59,6 +64,17 @@ find_package(catkin REQUIRED COMPONENTS
     zed_interfaces
 )
 
+add_message_files(
+  FILES
+  CameraSettingInfo.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
+
 generate_dynamic_reconfigure_options(
   cfg/Zed.cfg
 )
@@ -74,6 +90,7 @@ catkin_package(
     dynamic_reconfigure
     tf2_ros
     tf2_geometry_msgs
+    std_msgs
     message_runtime    
     zed_interfaces
     geometry_msgs

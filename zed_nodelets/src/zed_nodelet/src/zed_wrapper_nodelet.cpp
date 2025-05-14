@@ -23,7 +23,7 @@
 #include <sstream>
 
 #include "zed_wrapper_nodelet.hpp"
-
+#include "zed_nodelets/CameraSettingInfo.h"  // <- Auto-generated from msg
 #include "zed_wrapper_nodelet.hpp"
 
 #ifndef NDEBUG
@@ -490,6 +490,10 @@ void ZEDWrapperNodelet::onInit()
   NODELET_INFO_STREAM(" * Advertised on topic " << mPubStereo.getTopic());
   mPubRawStereo = it_zed.advertise(stereo_raw_topic, 1);
   NODELET_INFO_STREAM(" * Advertised on topic " << mPubRawStereo.getTopic());
+
+  // zed_camera_setting_publisher
+  mPubCameraSetting = mNh.advertise<zed_nodelets::CameraSettingInfo>(
+    "/zed/camera_setting_info", 10);
 
   // Detected planes publisher
   mPubPlane = mNhNs.advertise<zed_interfaces::PlaneStamped>(plane_topic, 1);
@@ -4279,11 +4283,64 @@ void ZEDWrapperNodelet::processCameraSettings()
   
   sl::VIDEO_SETTINGS setting;
   sl::ERROR_CODE err;
+  zed_nodelets::CameraSettingInfo msg;
+
+  int tmp_brightness; // Controls image brightness.	[0 - 8]
+  int tmp_contrast;  // Controls image contrast.	[0 - 8]
+  int tmp_hue; // Controls image color.	[0 - 11]
+  int tmp_saturation; // Controls image color intensity.	[0 - 8]
+  int tmp_sharpness; // Controls image sharpness.	[0 - 8]
+  int tmp_gamma; // Controls gamma correction.	[0 - 8]
+  int tmp_gain; // Controls digital amplification of the signal from the camera sensors.	[0 - 100]
+  int tmp_exposure; // Controls shutter speed. Setting a long exposure time leads to an increase in motion blur.	[0 - 100] (% of camera frame rate)
+  int tmp_aec_agc; // Controls if gain and exposure are in automatic mode or not.	[0 - 1]
+  sl::Rect tmp_aec_agc_roi(0,0,0,0); // Controls the region of interest for automatic exposure/gain computation. sl::Rect
+  int tmp_whitebalance_temperature; // Controls camera white balance.	[2800 - 6500]
+  int tmp_whitebalance_auto; // Controls camera white balance automatic mode.	[0 - 1]
+  int tmp_led_status; // Controls the status of the camera front LED. Set to 0 to disable the light, 1 to enable the light.	[0 - 1]
+  
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::BRIGHTNESS, tmp_brightness);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::CONTRAST, tmp_contrast);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::HUE, tmp_hue);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::SATURATION, tmp_saturation);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::SHARPNESS, tmp_sharpness);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::GAMMA, tmp_gamma);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::GAIN, tmp_gain);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::EXPOSURE, tmp_exposure);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::AEC_AGC, tmp_aec_agc);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::AEC_AGC_ROI, tmp_aec_agc_roi);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::WHITEBALANCE_TEMPERATURE, tmp_whitebalance_temperature);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::WHITEBALANCE_AUTO, tmp_whitebalance_auto);
+  mZed.getCameraSettings(sl::VIDEO_SETTINGS::LED_STATUS, tmp_led_status);
+
+  msg.header.stamp = ros::Time::now();
+  msg.header.frame_id = "zed_camera";  // or any meaningful frame name
+
+  msg.brightness = tmp_brightness;
+  msg.contrast = tmp_contrast;
+  msg.hue = tmp_hue;
+  msg.saturation = tmp_saturation;
+  msg.sharpness = tmp_sharpness;
+  msg.gamma = tmp_gamma;
+  msg.gain = tmp_gain;
+  msg.exposure = tmp_exposure;
+  msg.aec_agc = tmp_aec_agc;
+  msg.aec_agc_roi_x = tmp_aec_agc_roi.x;
+  msg.aec_agc_roi_y = tmp_aec_agc_roi.y;
+  msg.aec_agc_roi_width = tmp_aec_agc_roi.width;
+  msg.aec_agc_roi_height = tmp_aec_agc_roi.height;
+  msg.whitebalance_temperature = tmp_whitebalance_temperature;
+  msg.whitebalance_auto = tmp_whitebalance_auto;
+  msg.led_status = tmp_led_status;
+
+  mPubCameraSetting.publish(msg);
 
   if (!mSvoMode && mFrameCount % 5 == 0)
   {
     // NODELET_DEBUG_STREAM( "[" << mFrameCount << "] device_poll_thread_func MUTEX LOCK");
     mDynParMutex.lock();
+    std::cout << msg << std::endl;
+
 
     int value;
     setting = sl::VIDEO_SETTINGS::BRIGHTNESS;
@@ -4473,8 +4530,10 @@ void ZEDWrapperNodelet::processCameraSettings()
         mUpdateDynParams = true;
       }
     }
+
     mDynParMutex.unlock();
     // NODELET_DEBUG_STREAM( "device_poll_thread_func MUTEX UNLOCK");
+
   }
 
   if (mUpdateDynParams)
